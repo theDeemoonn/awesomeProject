@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package authentication;
+option go_package = "github.com/theDeemoonn/awesomeProject/authentication;authentication";
+// Сообщение, содержащее учетные данные пользователя.
+message UserCredentials {
+  string email = 1;       // Email пользователя
+  string password = 2;    // Пароль пользователя
+}
+
+// Сообщение для ответа сервиса, содержащее результат аутентификации или регистрации.
+message UserResponse {
+  string id = 1;          // ID пользователя в системе
+  string token = 2;       // JWT токен для аутентифицированного пользователя
+  bool success = 3;       // Флаг успешности операции
+  string message = 4;     // Сообщение об ошибке или информационное сообщение
+}
+
+// Сервис для аутентификации пользователей.
+service AuthenticationService {
+  // Метод для регистрации нового пользователя.
+  rpc Register (UserCredentials) returns (UserResponse);
+
+  // Метод для аутентификации пользователя.
+  rpc Login (UserCredentials) returns (UserResponse);
+}
