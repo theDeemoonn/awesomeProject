@@ -2,9 +2,9 @@ package auth
 
 import (
 	"awesomeProject/internal/models"
+	"github.com/golang-jwt/jwt/v4"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -14,30 +14,16 @@ type JWTClaims struct {
 	UserID primitive.ObjectID `json:"user_id"`
 	Email  string             `json:"email"`
 	Roles  string             `json:"roles"`
-	jwt.StandardClaims
-}
-
-// JWTConfig конфигурация для JWT
-type JWTConfig struct {
-	SecretKey string        // Секретный ключ для подписи токена
-	Duration  time.Duration // Продолжительность действия токена
-}
-
-// NewJWTConfig создает конфигурацию для JWT
-func NewJWTConfig(secretKey string, duration time.Duration) JWTConfig {
-	return JWTConfig{
-		SecretKey: secretKey,
-		Duration:  duration,
-	}
+	jwt.RegisteredClaims
 }
 
 // GenerateToken генерирует новый JWT токен для указанного пользователя
-func GenerateToken(user models.User, secretKey []byte, duration time.Duration) (string, error) {
+func GenerateToken(user models.User, secretKey []byte) (string, error) {
 	claims := JWTClaims{
 		UserID: user.ID,
 		Email:  user.Email,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(duration).Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			Issuer:    "food&friends",
 		},
 	}

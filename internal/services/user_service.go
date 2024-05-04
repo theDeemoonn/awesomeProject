@@ -4,9 +4,9 @@ import (
 	"awesomeProject/internal/auth"
 	"context"
 	"github.com/joho/godotenv"
+
 	"log"
 	"os"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,7 +28,7 @@ var SecretKey []byte
 
 func init() {
 	// Load environment variables from .env file
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("/Users/dima/go/src/awesomeProject/.env"); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
@@ -110,7 +110,7 @@ func (s *UserService) Authenticate(ctx context.Context, email, password string) 
 	}
 
 	// Генерация JWT токена (псевдокод, предполагает наличие функции GenerateJWT)
-	token, err := auth.GenerateToken(user, SecretKey, time.Hour*24)
+	token, err := auth.GenerateToken(user, SecretKey)
 	if err != nil {
 		return "", errors.Wrap(err, "generating JWT failed")
 	}

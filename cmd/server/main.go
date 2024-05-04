@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("/Users/dima/go/src/awesomeProject/.env"); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 	// Загрузка конфигурации
