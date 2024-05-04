@@ -1,0 +1,19 @@
+
+services:
+  server:
+    build:
+      context: .
+      target: final
+    ports:
+      - 8080:8080
+
+  mongo:
+    image: mongo
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+
+volumes:
+  mongo-data:

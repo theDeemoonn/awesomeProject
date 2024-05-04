@@ -1,10 +1,12 @@
 package services
 
 import (
+	"awesomeProject/internal/auth"
 	"context"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/joho/godotenv"
+	"log"
+	"os"
 	"time"
-	_ "time"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -22,7 +24,23 @@ type UserService struct {
 }
 
 // SecretKey - ключ для подписи JWT токена
-var SecretKey = []byte("secret")
+var SecretKey []byte
+
+func init() {
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	// Get the value of SECRET_KEY from the environment
+	secretKey := os.Getenv("SECRET_KEY")
+	if secretKey == "" {
+		log.Fatal("SECRET_KEY not defined in environment variables")
+	}
+
+	// Convert the secretKey string to []byte
+	SecretKey = []byte(secretKey)
+}
 
 // NewUserService создает новый экземпляр UserService
 func NewUserService(client *mongo.Client, dbName, collName string) *UserService {
@@ -49,6 +67,15 @@ func (s *UserService) GetUser(ctx context.Context, userID string) (*models.User,
 
 // Register регистрирует нового пользователя в системе
 func (s *UserService) Register(ctx context.Context, user *models.User) (string, error) {
+	//Проверка на уникальность email
+	count, err := s.db.CountDocuments(ctx, bson.M{"email": user.Email})
+	if err != nil {
+		return "", errors.Wrap(err, "checking email failed")
+	}
+	if count > 0 {
+		return "", errors.New("этот email уже зарегистрирован в системе")
+	}
+
 	// Хэширование пароля пользователя
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -83,30 +110,10 @@ func (s *UserService) Authenticate(ctx context.Context, email, password string) 
 	}
 
 	// Генерация JWT токена (псевдокод, предполагает наличие функции GenerateJWT)
-	token, err := GenerateJWT(user)
+	token, err := auth.GenerateToken(user, SecretKey, time.Hour*24)
 	if err != nil {
 		return "", errors.Wrap(err, "generating JWT failed")
 	}
 
 	return token, nil
-}
-
-// GenerateJWT генерирует JWT токен для пользователя
-// Это псевдокод и требует реализации в соответствии с вашей JWT библиотекой
-func GenerateJWT(user models.User) (string, error) {
-	// Создание нового токена
-	token := jwt.New(jwt.SigningMethodHS256)
-
-	// Установка пользовательских данных в токен
-	claims := token.Claims.(jwt.MapClaims)
-	claims["id"] = user.ID
-	claims["exp"] = time.Now().Add(time.Hour * 24).Unix() // Токен действителен в течение 24 часов
-
-	// Подписание токена с использованием секретного ключа
-	tokenString, err := token.SignedString(SecretKey)
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, nil
 }

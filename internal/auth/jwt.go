@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"awesomeProject/internal/models"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -31,19 +32,18 @@ func NewJWTConfig(secretKey string, duration time.Duration) JWTConfig {
 }
 
 // GenerateToken генерирует новый JWT токен для указанного пользователя
-func GenerateToken(user_id primitive.ObjectID, email, roles, secretKey string, duration time.Duration) (string, error) {
+func GenerateToken(user models.User, secretKey []byte, duration time.Duration) (string, error) {
 	claims := JWTClaims{
-		UserID: user_id,
-		Email:  email,
-		Roles:  roles,
+		UserID: user.ID,
+		Email:  user.Email,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(duration).Unix(),
-			Issuer:    "your_application_name",
+			Issuer:    "food&friends",
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString([]byte(secretKey))
+	signedToken, err := token.SignedString(secretKey)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to sign the JWT token")
 	}

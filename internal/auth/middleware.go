@@ -7,7 +7,7 @@ import (
 )
 
 // AuthMiddleware создает промежуточное ПО для аутентификации JWT
-func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
+func AuthMiddleware(secretKey []byte) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenString := extractToken(r)
@@ -16,7 +16,7 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 				return
 			}
 
-			claims, err := ValidateToken(tokenString, secretKey)
+			claims, err := ValidateToken(tokenString, string(secretKey))
 			if err != nil {
 				http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 				return

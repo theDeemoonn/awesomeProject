@@ -36,7 +36,7 @@ func main() {
 	defer client.Disconnect(context.Background())
 
 	// Инициализация сервисов
-	userService := services.NewUserService(client, "food&friends", "users")
+	userService := services.NewUserService(client, "food", "users")
 
 	// Инициализация обработчиков
 	userHandler := handlers.NewUserHandler(userService)
