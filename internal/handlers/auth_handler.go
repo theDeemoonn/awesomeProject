@@ -1,22 +1,27 @@
 package handlers
 
 import (
-	"encoding/json"
-	"net/http"
-
 	"awesomeProject/internal/models"
 	"awesomeProject/internal/services"
+	"encoding/json"
+	"log"
+	"net/http"
+	"time"
 )
 
 // AuthHandler структура для обработчиков аутентификации
 type AuthHandler struct {
 	userService *services.UserService
+	secretKey   []byte
+	refreshKey  []byte
 }
 
 // NewAuthHandler создает новый экземпляр AuthHandler
-func NewAuthHandler(userService *services.UserService) *AuthHandler {
+func NewAuthHandler(userService *services.UserService, secretKey, refreshKey []byte) *AuthHandler {
 	return &AuthHandler{
 		userService: userService,
+		secretKey:   secretKey,
+		refreshKey:  refreshKey,
 	}
 }
 
@@ -38,7 +43,6 @@ func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// LoginHandler обрабатывает вход пользователя
 func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var creds models.UserCredentials
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
@@ -46,12 +50,51 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.userService.Authenticate(r.Context(), creds.Email, creds.Password)
+	user, err := h.userService.Authenticate(r.Context(), creds.Email, creds.Password)
 	if err != nil {
+		log.Printf("Authentication failed for email %s with error: %v", creds.Email, err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
+	if err != nil {
+		http.Error(w, "Invalid credentialsLogin", http.StatusUnauthorized)
+		return
+	}
 
-	response := map[string]string{"token": token}
-	json.NewEncoder(w).Encode(response)
+	secretKey, refreshTokenSecret := h.userService.GetSecretKeys() // Предполагаем, что эти ключи получены надлежащим образом
+	accessToken, refreshToken, err := h.userService.GenerateAndStoreToken(r.Context(), user, secretKey, refreshTokenSecret)
+	if err != nil {
+		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
+		return
+	}
+
+	// Установка куки с токенами
+	setTokenCookies(w, accessToken, refreshToken)
+
+	// Отправка ответа, что аутентификация прошла успешно
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func setTokenCookies(w http.ResponseWriter, accessToken, refreshToken string) {
+	// Установка куки для доступного токена
+	http.SetCookie(w, &http.Cookie{
+		Name:     "AccessToken",
+		Value:    accessToken,
+		Expires:  time.Now().Add(15 * time.Minute), // срок действия доступного токена
+		HttpOnly: true,                             // защита от доступа через JavaScript
+		Secure:   true,                             // куки отправляются только по HTTPS
+		Path:     "/",
+		SameSite: http.SameSiteStrictMode, // предотвращение отправки куки вместе с кросс-сайтовыми запросами
+	})
+
+	// Установка куки для рефреш токена
+	http.SetCookie(w, &http.Cookie{
+		Name:     "RefreshToken",
+		Value:    refreshToken,
+		Expires:  time.Now().Add(7 * 24 * time.Hour), // срок действия рефреш токена
+		HttpOnly: true,
+		Secure:   true,
+		Path:     "/",
+		SameSite: http.SameSiteStrictMode,
+	})
 }

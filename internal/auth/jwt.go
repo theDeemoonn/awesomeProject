@@ -3,10 +3,9 @@ package auth
 import (
 	"awesomeProject/internal/models"
 	"github.com/golang-jwt/jwt/v4"
-	"time"
-
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 )
 
 // JWTClaims структура для утверждений JWT
@@ -17,24 +16,35 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-// GenerateToken генерирует новый JWT токен для указанного пользователя
-func GenerateToken(user models.User, secretKey []byte) (string, error) {
-	claims := JWTClaims{
+// GenerateToken создает и возвращает доступный и рефреш JWT токен для пользователя.
+func GenerateToken(user models.User, secretKey []byte, refreshTokenSecret []byte) (string, string, error) {
+	accessClaims := &JWTClaims{
 		UserID: user.ID,
-		Email:  user.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), // 15 minutes
 			Issuer:    "food&friends",
 		},
 	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString(secretKey)
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	signedAccessToken, err := accessToken.SignedString(secretKey)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to sign the JWT token")
+		return "", "", err
 	}
 
-	return signedToken, nil
+	refreshClaims := &JWTClaims{
+		UserID: user.ID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), // 7 days
+			Issuer:    "food&friends",
+		},
+	}
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	signedRefreshToken, err := refreshToken.SignedString(refreshTokenSecret)
+	if err != nil {
+		return "", "", err
+	}
+
+	return signedAccessToken, signedRefreshToken, nil
 }
 
 // ValidateToken проверяет и декодирует JWT токен
