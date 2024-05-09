@@ -1,78 +1,88 @@
 package handlers
 
 import (
+	"awesomeProject/internal/auth"
 	"awesomeProject/internal/models"
 	"awesomeProject/internal/services"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 )
 
 // AuthHandler структура для обработчиков аутентификации
 type AuthHandler struct {
-	userService *services.UserService
-	secretKey   []byte
-	refreshKey  []byte
+	entityService *services.EntityService
+	secretKey     []byte
+	refreshKey    []byte
 }
 
 // NewAuthHandler создает новый экземпляр AuthHandler
-func NewAuthHandler(userService *services.UserService, secretKey, refreshKey []byte) *AuthHandler {
+func NewAuthHandler(entityService *services.EntityService, secretKey, refreshKey []byte) *AuthHandler {
 	return &AuthHandler{
-		userService: userService,
-		secretKey:   secretKey,
-		refreshKey:  refreshKey,
+		entityService: entityService,
+		secretKey:     secretKey,
+		refreshKey:    refreshKey,
 	}
 }
 
 // RegisterHandler обрабатывает регистрацию нового пользователя
-func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
-	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+func (h *EntityHandler) RegisterHandler(w http.ResponseWriter, r *http.Request, entityType string) {
+	var authEntity auth.Authenticatable
+
+	switch entityType {
+	case "users":
+		authEntity = new(models.User)
+	case "restaurants":
+		authEntity = new(models.Restaurant)
+	default:
+		http.Error(w, "Invalid entity type", http.StatusBadRequest)
+		return
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(authEntity); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	userID, err := h.userService.Register(r.Context(), &user)
+	entityID, err := h.entityService.Register(r.Context(), authEntity)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := map[string]string{"userID": userID}
+	response := map[string]string{"entityID": entityID}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	var creds models.UserCredentials
-	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request, entityType string) {
+	var authEntity auth.Authenticatable
+
+	switch entityType {
+	case "users":
+		authEntity = new(models.User)
+	case "restaurants":
+		authEntity = new(models.Restaurant)
+	default:
+		http.Error(w, "Invalid entity type", http.StatusBadRequest)
+		return
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(authEntity); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	user, err := h.userService.Authenticate(r.Context(), creds.Email, creds.Password)
+	// Correctly log the type of the entity being authenticated
+	secretKey, refreshTokenSecret := h.entityService.GetSecretKeys()
+	accessToken, refreshToken, err := h.entityService.AuthenticateAndGenerateTokens(r.Context(), authEntity, secretKey, refreshTokenSecret)
 	if err != nil {
-		log.Printf("Authentication failed for email %s with error: %v", creds.Email, err)
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-		return
-	}
-	if err != nil {
-		http.Error(w, "Invalid credentialsLogin", http.StatusUnauthorized)
+		http.Error(w, "Failed to authenticate or generate tokens", http.StatusInternalServerError)
 		return
 	}
 
-	secretKey, refreshTokenSecret := h.userService.GetSecretKeys() // Предполагаем, что эти ключи получены надлежащим образом
-	accessToken, refreshToken, err := h.userService.GenerateAndStoreToken(r.Context(), user, secretKey, refreshTokenSecret)
-	if err != nil {
-		http.Error(w, "Failed to generate tokens", http.StatusInternalServerError)
-		return
-	}
-
-	// Установка куки с токенами
 	setTokenCookies(w, accessToken, refreshToken)
-
-	// Отправка ответа, что аутентификация прошла успешно
-	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	json.NewEncoder(w).Encode(map[string]string{"status": "success", "accessToken": accessToken, "refreshToken": refreshToken})
 }
 
 func setTokenCookies(w http.ResponseWriter, accessToken, refreshToken string) {

@@ -61,15 +61,21 @@ func main() {
 		}
 	}(client, context.Background())
 
+	// Имя коллекции для пользователей
+	usersCollectionName := "users"
+	restaurantsCollectionName := "restaurants"
+
 	// Инициализация сервисов
-	userService := services.NewUserService(client, "food", "users")
+	userService := services.NewEntityService(client, "food", usersCollectionName)
+	restaurantService := services.NewEntityService(client, "food", restaurantsCollectionName)
 
 	// Инициализация обработчиков
-	userHandler := handlers.NewUserHandler(userService)
+	userHandler := handlers.NewEntityHandler(userService)
+	restaurantHandler := handlers.NewEntityHandler(restaurantService)
 	authHandler := handlers.NewAuthHandler(userService, []byte(secretKey), refreshTokenSecret)
 
 	// Настройка роутинга
-	r := router.InitializeRouter(userHandler, authHandler)
+	r := router.InitializeRouter(userHandler, authHandler, restaurantHandler)
 	// Настройка и запуск HTTP сервера
 	httpServer := &http.Server{
 		Handler:      r,

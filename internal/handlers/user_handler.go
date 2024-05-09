@@ -3,7 +3,6 @@ package handlers
 import (
 	"awesomeProject/internal/auth"
 	"encoding/json"
-	"github.com/joho/godotenv"
 	"log"
 	"net/http"
 	"os"
@@ -13,95 +12,112 @@ import (
 	"awesomeProject/internal/services"
 )
 
-// UserHandler структура для обработчиков пользователей
-type UserHandler struct {
-	userService *services.UserService
+// EntityHandler структура для обработчиков пользователей
+type EntityHandler struct {
+	entityService *services.EntityService
 }
 
-// NewUserHandler создает новый экземпляр UserHandler
-func NewUserHandler(userService *services.UserService) *UserHandler {
-	return &UserHandler{
-		userService: userService,
+// NewEntityHandler создает новый экземпляр EntityHandler
+func NewEntityHandler(userService *services.EntityService) *EntityHandler {
+	return &EntityHandler{
+		entityService: userService,
 	}
 }
 
-// RegisterUser обрабатывает регистрацию нового пользователя
-func (h *UserHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
-	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+// LoginEntityHandler обрабатывает аутентификацию пользователя
+func (h *EntityHandler) LoginEntityHandler(w http.ResponseWriter, r *http.Request, entityType string) {
+	var authEntity auth.Authenticatable
+
+	switch entityType {
+	case "users":
+		authEntity = new(models.User)
+	case "restaurants":
+		authEntity = new(models.Restaurant)
+	default:
+		http.Error(w, "Invalid entity type", http.StatusBadRequest)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(&authEntity); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	userID, err := h.userService.Register(r.Context(), &user)
+	token, err := h.entityService.Authenticate(r.Context(), authEntity.GetEmail(), authEntity.GetPassword(), authEntity)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	response := map[string]string{"userID": userID}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// GetUserById обрабатывает получение данных пользователя
-func (h *UserHandler) GetUserById(w http.ResponseWriter, r *http.Request) {
-	// Это пример того, как можно извлечь параметр из запроса, например, ID пользователя
-	userID := r.URL.Query().Get("id")
-
-	user, err := h.userService.GetUser(r.Context(), userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(token)
+
 }
 
-// UpdateUser обрабатывает обновление данных пользователя
-func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	// Это пример того, как можно извлечь параметр из запроса, например, ID пользователя
-	userID := r.URL.Query().Get("id")
+// GetEntityById обрабатывает получение данных сущности по ID
+func (h *EntityHandler) GetEntityById(w http.ResponseWriter, r *http.Request, entityType string) {
+	// Получение ID сущности из запроса
+	entityID := r.URL.Query().Get("id")
 
-	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+	// Получение сущности по ID и типу
+	entity, err := h.entityService.GetEntity(r.Context(), entityID, entityType)
+	if err != nil {
+		http.Error(w, entityType+" not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entity)
+}
+
+// UpdateEntity обрабатывает обновление данных сущности
+func (h *EntityHandler) UpdateEntity(w http.ResponseWriter, r *http.Request, entityType string) {
+	entityID := r.URL.Query().Get("id")
+
+	var entity interface{}
+	switch entityType {
+	case "users":
+		entity = new(models.User)
+	case "restaurants":
+		entity = new(models.Restaurant)
+	default:
+		http.Error(w, "Invalid entity type", http.StatusBadRequest)
+		return
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&entity); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	err := h.userService.UpdateUser(r.Context(), userID, &user)
+	err := h.entityService.UpdateEntity(r.Context(), entityID, entity, entityType)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := map[string]string{"message": "User updated successfully"}
+	response := map[string]string{"message": entityType + " updated successfully"}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-// DeleteUser обрабатывает удаление пользователя
-func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	// Это пример того, как можно извлечь параметр из запроса, например, ID пользователя
-	userID := r.URL.Query().Get("id")
+// DeleteEntity обрабатывает удаление сущности
+func (h *EntityHandler) DeleteEntity(w http.ResponseWriter, r *http.Request, entityType string) {
+	entityID := r.URL.Query().Get("id")
 
-	err := h.userService.DeleteUser(r.Context(), userID)
+	err := h.entityService.DeleteEntity(r.Context(), entityID, entityType)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, entityType+" not found or delete failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := map[string]string{"message": "User deleted successfully"}
+	response := map[string]string{"message": entityType + " deleted successfully"}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
-
-// GetUserHandler обрабатывает получение данных пользователя
 
 // GetAllUsers обрабатывает получение всех пользователей
-func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.userService.GetAllUsers(r.Context())
+func (h *EntityHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.entityService.GetAllUsers(r.Context())
 	if err != nil {
 		http.Error(w, "Error getting users", http.StatusInternalServerError)
 		return
@@ -111,52 +127,40 @@ func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// GetUser обрабатывает получение данных пользователя
-func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
-	if err := godotenv.Load("/Users/dima/go/src/awesomeProject/.env"); err != nil {
-		log.Fatal("Error loading .env file")
+// GetAllRestaurants обрабатывает получение всех ресторанов
+func (h *EntityHandler) GetAllRestaurants(w http.ResponseWriter, r *http.Request) {
+	restaurants, err := h.entityService.GetAllRestaurants(r.Context())
+	if err != nil {
+		http.Error(w, "Error getting restaurants", http.StatusInternalServerError)
+		return
 	}
 
-	secretKey := os.Getenv("SECRET_KEY")
-	if secretKey == "" {
-		log.Fatal("JWT_SECRET_KEY is not set in environment variables")
-	}
-	// Извлекаем токен из заголовка Authorization
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(restaurants)
+
+}
+
+// GetEntity обрабатывает получение данных сущности
+func (h *EntityHandler) GetEntity(w http.ResponseWriter, r *http.Request) {
 	tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if tokenString == "" {
 		http.Error(w, "Authorization header is required", http.StatusUnauthorized)
 		return
 	}
 
-	// Валидация и разбор токена
-	claims, err := auth.ValidateToken(tokenString, secretKey)
+	claims, err := auth.ValidateToken(tokenString, os.Getenv("SECRET_KEY"))
 	if err != nil {
 		http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	// Проверка, что токен не просрочен и подпись корректна
-	//if !token.Valid {
-	//	http.Error(w, "Invalid token", http.StatusUnauthorized)
-	//	return
-	//}
-
-	// Извлечение ID пользователя из токена
-	userID := claims.UserID.Hex()
-
-	// Запрос информации о пользователе из базы данных
-	user, err := h.userService.GetUser(r.Context(), userID)
+	entity, err := h.entityService.GetEntity(r.Context(), claims.UserID.Hex(), claims.EntityType)
 	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
+		log.Printf("Error finding entity: %v", err)
+		http.Error(w, claims.EntityType+" not found", http.StatusNotFound)
 		return
 	}
 
-	// Отправка данных пользователя клиенту
-	response, err := json.Marshal(user)
-	if err != nil {
-		http.Error(w, "Failed to serialize user data", http.StatusInternalServerError)
-		return
-	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(response)
+	json.NewEncoder(w).Encode(entity)
 }

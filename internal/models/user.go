@@ -2,7 +2,6 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"gopkg.in/go-playground/validator.v9"
 )
 
@@ -10,10 +9,6 @@ type UserCredentials struct {
 	Email        string `json:"email"`
 	Password     string `json:"password"`
 	RefreshToken string `bson:"refreshToken,omitempty"`
-}
-
-type UserService struct {
-	db *mongo.Collection
 }
 
 // User структура, представляющая пользователя
@@ -40,8 +35,27 @@ func (u *User) Validate() error {
 	return validate.Struct(u)
 }
 
-// UpdateRefreshToken обновляет токен обновления
-func (u *User) UpdateRefreshToken(token string) string {
-	u.RefreshToken = token
-	return u.RefreshToken
+func (u *User) GetEmail() string          { return u.Email }
+func (u *User) GetPassword() string       { return u.Password }
+func (u *User) GetRoles() string          { return u.Roles }
+func (u *User) GetID() primitive.ObjectID { return u.ID }
+func (u *User) GetCollectionName() string {
+	return "users"
+}
+
+func (u *User) GetCustomData() map[string]interface{} {
+	return map[string]interface{}{
+		"email":       u.Email,
+		"password":    u.Password,
+		"surname":     u.Surname,
+		"name":        u.Name,
+		"age":         u.Age,
+		"phone":       u.Phone,
+		"interests":   u.Interests,
+		"description": u.Description,
+		"avatar":      u.Avatar,
+		"banned":      u.Banned,
+		"banReason":   u.BanReason,
+		"roles":       u.Roles,
+	}
 }
