@@ -28,7 +28,7 @@ var SecretKey []byte
 
 func init() {
 	// Load environment variables from .env file
-	if err := godotenv.Load("/Users/dima/go/src/awesomeProject/.env"); err != nil {
+	if err := godotenv.Load(".env"); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 

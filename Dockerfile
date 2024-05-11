@@ -11,6 +11,7 @@
 ARG GO_VERSION=1.22
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build
 WORKDIR /src
+COPY . .
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
 # Leverage a cache mount to /go/pkg/mod/ to speed up subsequent builds.
@@ -70,6 +71,7 @@ USER appuser
 
 # Copy the executable from the "build" stage.
 COPY --from=build /bin/server /bin/
+COPY --from=build /src/.env /.env
 
 
 # Expose the port that the application listens on.

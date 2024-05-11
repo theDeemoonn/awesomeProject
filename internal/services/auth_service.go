@@ -103,7 +103,7 @@ func GenerateRandomSecret(length int) ([]byte, error) {
 
 // GetSecretKeys возвращает секретные ключи из переменных окружения
 func (s *EntityService) GetSecretKeys() ([]byte, []byte) {
-	if err := godotenv.Load("/Users/dima/go/src/awesomeProject/.env"); err != nil {
+	if err := godotenv.Load(".env"); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
