@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"awesomeProject/internal/auth"
+	"context"
 	"encoding/json"
+	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"net/http"
 	"os"
@@ -163,4 +167,68 @@ func (h *EntityHandler) GetEntity(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(entity)
+}
+
+// AddFavoriteRestaurantHandler обрабатывает добавление ресторана в список избранных
+func (h *EntityHandler) AddFavoriteRestaurantHandler(w http.ResponseWriter, r *http.Request) {
+	// Извлечение ID пользователя из контекста запроса
+	userID, err := getUserIDFromContext(r.Context())
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Извлечение ID ресторана из запроса
+	vars := mux.Vars(r)
+	restaurantIDHex := vars["restaurant_id"]
+	restaurantID, err := primitive.ObjectIDFromHex(restaurantIDHex)
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+
+	// Добавление ресторана в список избранных
+	err = h.entityService.AddFavoriteRestaurant(r.Context(), userID, restaurantID)
+	if err != nil {
+		http.Error(w, "Failed to add favorite restaurant", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Restaurant added to favorites"))
+}
+
+// GetFavoriteRestaurantsHandler обрабатывает получение списка избранных ресторанов пользователя
+func (h *EntityHandler) GetFavoriteRestaurantsHandler(w http.ResponseWriter, r *http.Request) {
+	// Извлечение ID пользователя из контекста запроса
+	userID, err := getUserIDFromContext(r.Context())
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Получение списка избранных ресторанов
+	favoriteRestaurants, err := h.entityService.GetFavoriteRestaurants(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "Failed to get favorite restaurants", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(favoriteRestaurants)
+}
+
+// getUserIDFromContext извлекает ID пользователя из контекста
+func getUserIDFromContext(ctx context.Context) (primitive.ObjectID, error) {
+	userClaims, ok := ctx.Value("userClaims").(*auth.JWTClaims)
+	if !ok || userClaims == nil {
+		return primitive.NilObjectID, errors.New("no user claims found in context")
+	}
+
+	userID, err := primitive.ObjectIDFromHex(userClaims.UserID.Hex())
+	if err != nil {
+		return primitive.NilObjectID, errors.New("invalid user ID")
+	}
+
+	return userID, nil
 }

@@ -75,5 +75,8 @@ func InitializeRouter(userHandler *handlers.EntityHandler, authHandler *handlers
 		restaurantHandler.DeleteEntity(w, r, "restaurants")
 	}).Methods("DELETE")
 
+	s.HandleFunc("/users/favorites/add/{restaurant_id}", userHandler.AddFavoriteRestaurantHandler).Methods("POST")
+	s.HandleFunc("/users/favorites/get", userHandler.GetFavoriteRestaurantsHandler).Methods("GET")
+
 	return r
 }

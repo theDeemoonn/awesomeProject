@@ -13,20 +13,21 @@ type UserCredentials struct {
 
 // User структура, представляющая пользователя
 type User struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty"`
-	Email        string             `json:"email" bson:"email" validate:"required,email"`
-	Password     string             `json:"password" bson:"password" validate:"required,min=6"`
-	Surname      string             `json:"surname" bson:"surname" validate:"required"`
-	Name         string             `json:"name" bson:"name" validate:"required"`
-	Age          int                `json:"age" bson:"age" validate:"required,gte=0,lte=130"`
-	Phone        string             `json:"phone" bson:"phone" validate:"required,len=11"`
-	Interests    string             `json:"interests" bson:"interests" validate:"max=1000"`
-	Description  string             `json:"description" bson:"description" validate:"max=1000"`
-	Avatar       string             `json:"avatar" bson:"avatar" validate:"max=1000"`
-	Banned       bool               `json:"banned" bson:"banned,omitempty"`
-	BanReason    string             `json:"ban_reason" bson:"banReason,omitempty"`
-	Roles        string             `json:"roles" bson:"roles,omitempty"`
-	RefreshToken string             `json:"-"`
+	ID           primitive.ObjectID   `bson:"_id,omitempty"`
+	Email        string               `json:"email" bson:"email" validate:"required,email"`
+	Password     string               `json:"password" bson:"password" validate:"required,min=6"`
+	Surname      string               `json:"surname" bson:"surname" validate:"required"`
+	Name         string               `json:"name" bson:"name" validate:"required"`
+	Age          int                  `json:"age" bson:"age" validate:"required,gte=0,lte=130"`
+	Phone        string               `json:"phone" bson:"phone" validate:"required,len=11"`
+	Interests    string               `json:"interests" bson:"interests" validate:"max=1000"`
+	Description  string               `json:"description" bson:"description" validate:"max=1000"`
+	Avatar       string               `json:"avatar" bson:"avatar" validate:"max=1000"`
+	Banned       bool                 `json:"banned" bson:"banned,omitempty"`
+	BanReason    string               `json:"ban_reason" bson:"banReason,omitempty"`
+	Roles        string               `json:"roles" bson:"roles,omitempty"`
+	RefreshToken string               `json:"-"`
+	Favorites    []primitive.ObjectID `json:"favorites" bson:"favorites,omitempty"`
 }
 
 // Validate выполняет валидацию полей пользователя

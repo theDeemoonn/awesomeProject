@@ -178,3 +178,45 @@ func (s *EntityService) GetAllRestaurants(ctx context.Context) ([]models.Restaur
 	}
 	return restaurants, nil
 }
+
+// AddFavoriteRestaurant добавляет ресторан в список избранных у пользователя
+func (s *EntityService) AddFavoriteRestaurant(ctx context.Context, userID primitive.ObjectID, restaurantID primitive.ObjectID) error {
+	collection := s.db.Collection("users")
+
+	// Обновление списка избранных ресторанов
+	filter := bson.M{"_id": userID}
+	update := bson.M{"$addToSet": bson.M{"favorites": restaurantID}}
+
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return errors.Wrap(err, "adding favorite restaurant failed")
+	}
+
+	return nil
+}
+
+// GetFavoriteRestaurants возвращает список избранных ресторанов пользователя
+func (s *EntityService) GetFavoriteRestaurants(ctx context.Context, userID primitive.ObjectID) ([]models.Restaurant, error) {
+	userCollection := s.db.Collection("users")
+	var user models.User
+
+	// Получение данных пользователя
+	err := userCollection.FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
+	if err != nil {
+		return nil, errors.Wrap(err, "user not found")
+	}
+
+	restaurantCollection := s.db.Collection("restaurants")
+	var favoriteRestaurants []models.Restaurant
+
+	// Получение данных избранных ресторанов
+	cursor, err := restaurantCollection.Find(ctx, bson.M{"_id": bson.M{"$in": user.Favorites}})
+	if err != nil {
+		return nil, errors.Wrap(err, "finding favorite restaurants failed")
+	}
+	if err := cursor.All(ctx, &favoriteRestaurants); err != nil {
+		return nil, errors.Wrap(err, "decoding favorite restaurants failed")
+	}
+
+	return favoriteRestaurants, nil
+}
