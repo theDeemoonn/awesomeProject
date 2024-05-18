@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"net/http"
@@ -19,12 +20,14 @@ import (
 // EntityHandler структура для обработчиков пользователей
 type EntityHandler struct {
 	entityService *services.EntityService
+	redisService  *services.RedisService
 }
 
 // NewEntityHandler создает новый экземпляр EntityHandler
-func NewEntityHandler(userService *services.EntityService) *EntityHandler {
+func NewEntityHandler(userService *services.EntityService, redisService *services.RedisService) *EntityHandler {
 	return &EntityHandler{
 		entityService: userService,
+		redisService:  redisService,
 	}
 }
 
@@ -59,21 +62,53 @@ func (h *EntityHandler) LoginEntityHandler(w http.ResponseWriter, r *http.Reques
 
 // GetEntityById обрабатывает получение данных сущности по ID
 func (h *EntityHandler) GetEntityById(w http.ResponseWriter, r *http.Request, entityType string) {
-	// Получение ID сущности из запроса
-	entityID := r.URL.Query().Get("id")
+	vars := mux.Vars(r)
+	entityIDStr := vars["id"]
 
-	// Получение сущности по ID и типу
-	entity, err := h.entityService.GetEntity(r.Context(), entityID, entityType)
+	entityID, err := primitive.ObjectIDFromHex(entityIDStr)
 	if err != nil {
+		http.Error(w, "Invalid entity ID", http.StatusBadRequest)
+		return
+	}
+
+	var entity interface{}
+	switch entityType {
+	case "users":
+		entity = new(models.User)
+	case "restaurants":
+		entity = new(models.Restaurant)
+	default:
+		http.Error(w, "Invalid entity type", http.StatusBadRequest)
+		return
+	}
+
+	err = h.redisService.GetCachedEntity(entityID.Hex(), &entity)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(entity)
+		return
+	}
+
+	if err != redis.Nil {
+		http.Error(w, "Error getting "+entityType+" from cache: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	entity, err = h.entityService.GetEntity(r.Context(), entityID.Hex(), entityType)
+	if err != nil || entity == nil {
 		http.Error(w, entityType+" not found", http.StatusNotFound)
+		return
+	}
+
+	err = h.redisService.CacheEntity(entityIDStr, entity)
+	if err != nil {
+		http.Error(w, "Failed to cache "+entityType, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(entity)
-}
-
-// UpdateEntity обрабатывает обновление данных сущности
+} // UpdateEntity обрабатывает обновление данных сущности
 func (h *EntityHandler) UpdateEntity(w http.ResponseWriter, r *http.Request, entityType string) {
 	entityID := r.URL.Query().Get("id")
 

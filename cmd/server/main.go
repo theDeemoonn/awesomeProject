@@ -68,10 +68,11 @@ func main() {
 	// Инициализация сервисов
 	userService := services.NewEntityService(client, "food", usersCollectionName)
 	restaurantService := services.NewEntityService(client, "food", restaurantsCollectionName)
+	redisService := services.NewRedisService()
 
 	// Инициализация обработчиков
-	userHandler := handlers.NewEntityHandler(userService)
-	restaurantHandler := handlers.NewEntityHandler(restaurantService)
+	userHandler := handlers.NewEntityHandler(userService, redisService)
+	restaurantHandler := handlers.NewEntityHandler(restaurantService, redisService)
 	authHandler := handlers.NewAuthHandler(userService, []byte(secretKey), refreshTokenSecret)
 
 	// Настройка роутинга
