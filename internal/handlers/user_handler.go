@@ -23,6 +23,11 @@ type EntityHandler struct {
 	redisService  *services.RedisService
 }
 
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
 // NewEntityHandler создает новый экземпляр EntityHandler
 func NewEntityHandler(userService *services.EntityService, redisService *services.RedisService) *EntityHandler {
 	return &EntityHandler{
@@ -108,7 +113,9 @@ func (h *EntityHandler) GetEntityById(w http.ResponseWriter, r *http.Request, en
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(entity)
-} // UpdateEntity обрабатывает обновление данных сущности
+}
+
+// UpdateEntity обрабатывает обновление данных сущности
 func (h *EntityHandler) UpdateEntity(w http.ResponseWriter, r *http.Request, entityType string) {
 	entityID := r.URL.Query().Get("id")
 
@@ -137,6 +144,46 @@ func (h *EntityHandler) UpdateEntity(w http.ResponseWriter, r *http.Request, ent
 	response := map[string]string{"message": entityType + " updated successfully"}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// ChangePasswordHandler обрабатывает изменение пароля сущности
+func (h *EntityHandler) ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	entityIDStr := vars["id"]
+
+	entityID, err := primitive.ObjectIDFromHex(entityIDStr)
+	if err != nil {
+		http.Error(w, "Invalid entity ID", http.StatusBadRequest)
+		return
+	}
+
+	var changePasswordRequest ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&changePasswordRequest); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	entityType := r.URL.Query().Get("type")
+	var entity auth.Authenticatable
+
+	switch entityType {
+	case "users":
+		entity = new(models.User)
+	case "restaurants":
+		entity = new(models.Restaurant)
+	default:
+		http.Error(w, "Invalid entity type", http.StatusBadRequest)
+		return
+	}
+
+	err = h.entityService.ChangePassword(r.Context(), entityID.Hex(), changePasswordRequest.OldPassword, changePasswordRequest.NewPassword, entity)
+	if err != nil {
+		http.Error(w, "Failed to change password: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "password changed successfully"})
 }
 
 // DeleteEntity обрабатывает удаление сущности

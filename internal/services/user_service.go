@@ -1,9 +1,11 @@
 package services
 
 import (
+	"awesomeProject/internal/auth"
 	"context"
 	"fmt"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 	"reflect"
 
 	"log"
@@ -116,6 +118,38 @@ func (s *EntityService) UpdateEntity(ctx context.Context, entityID string, entit
 	_, err = s.db.Collection(collectionName).UpdateOne(ctx, filter, update)
 	if err != nil {
 		return errors.Wrap(err, "updating entity failed")
+	}
+
+	return nil
+}
+
+func (s *EntityService) ChangePassword(ctx context.Context, entityID string, oldPassword, newPassword string, entity auth.Authenticatable) error {
+	collectionName := entity.GetCollectionName()
+	collection := s.db.Collection(collectionName)
+
+	// Получение сущности из базы данных
+	var storedEntity auth.Authenticatable
+	err := collection.FindOne(ctx, bson.M{"_id": primitive.ObjectIDFromHex(entityID)}).Decode(&storedEntity)
+	if err != nil {
+		return errors.Wrap(err, "entity not found")
+	}
+
+	// Проверка старого пароля
+	if err := bcrypt.CompareHashAndPassword([]byte(storedEntity.GetPassword()), []byte(oldPassword)); err != nil {
+		return errors.New("invalid old password")
+	}
+
+	// Хэширование нового пароля
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.Wrap(err, "hashing new password failed")
+	}
+
+	// Обновление пароля в базе данных
+	update := bson.M{"$set": bson.M{"password": string(hashedPassword)}}
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": storedEntity.GetID()}, update)
+	if err != nil {
+		return errors.Wrap(err, "updating password failed")
 	}
 
 	return nil

@@ -78,5 +78,7 @@ func InitializeRouter(userHandler *handlers.EntityHandler, authHandler *handlers
 	s.HandleFunc("/users/favorites/add/{restaurant_id}", userHandler.AddFavoriteRestaurantHandler).Methods("POST")
 	s.HandleFunc("/users/favorites/get", userHandler.GetFavoriteRestaurantsHandler).Methods("GET")
 
+	s.HandleFunc("/change-password/{id}", userHandler.ChangePasswordHandler).Methods("POST")
+
 	return r
 }
