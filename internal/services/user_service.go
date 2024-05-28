@@ -123,13 +123,20 @@ func (s *EntityService) UpdateEntity(ctx context.Context, entityID string, entit
 	return nil
 }
 
+// ChangePassword изменяет пароль сущности по ее ID и типу
 func (s *EntityService) ChangePassword(ctx context.Context, entityID string, oldPassword, newPassword string, entity auth.Authenticatable) error {
 	collectionName := entity.GetCollectionName()
 	collection := s.db.Collection(collectionName)
 
+	// Преобразование entityID в ObjectID
+	objID, err := primitive.ObjectIDFromHex(entityID)
+	if err != nil {
+		return errors.Wrap(err, "invalid entity ID")
+	}
+
 	// Получение сущности из базы данных
 	var storedEntity auth.Authenticatable
-	err := collection.FindOne(ctx, bson.M{"_id": primitive.ObjectIDFromHex(entityID)}).Decode(&storedEntity)
+	err = collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&storedEntity)
 	if err != nil {
 		return errors.Wrap(err, "entity not found")
 	}
@@ -147,7 +154,7 @@ func (s *EntityService) ChangePassword(ctx context.Context, entityID string, old
 
 	// Обновление пароля в базе данных
 	update := bson.M{"$set": bson.M{"password": string(hashedPassword)}}
-	_, err = collection.UpdateOne(ctx, bson.M{"_id": storedEntity.GetID()}, update)
+	_, err = collection.UpdateOne(ctx, bson.M{"_id": objID}, update)
 	if err != nil {
 		return errors.Wrap(err, "updating password failed")
 	}
