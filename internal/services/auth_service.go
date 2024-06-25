@@ -5,10 +5,12 @@ import (
 	"awesomeProject/internal/models"
 	"context"
 	"crypto/rand"
+	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"os"
@@ -49,20 +51,37 @@ func (s *EntityService) Register(ctx context.Context, auth auth.Authenticatable)
 }
 
 // Authenticate проверяет учетные данные пользователя и возвращает токен, если успешно
-func (s *EntityService) Authenticate(ctx context.Context, email, password string, auth auth.Authenticatable) (models.User, error) {
-	collectionName := auth.GetCollectionName() // Получение имени коллекции
+func (s *EntityService) Authenticate(ctx context.Context, email, password string, authEntity auth.Authenticatable) (auth.Authenticatable, error) {
+	collectionName := authEntity.GetCollectionName() // Получение имени коллекции
+	fmt.Println("Collection name: ", collectionName)
+
 	collection := s.db.Collection(collectionName)
-	var user models.User
-	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	fmt.Println("Collection: ", collection)
+
+	var entity auth.Authenticatable
+	switch collectionName {
+	case "users":
+		entity = &models.User{}
+	case "restaurants":
+		entity = &models.Restaurant{}
+	default:
+		return nil, fmt.Errorf("unknown collection name: %s", collectionName)
+	}
+
+	err := collection.FindOne(ctx, bson.M{"email": email}).Decode(entity)
 	if err != nil {
-		return models.User{}, err // Пользователь не найден или другая ошибка запроса
+		if err == mongo.ErrNoDocuments {
+			log.Printf("No entity found with email: %s", email)
+			return nil, fmt.Errorf("no entity found with email: %s", email)
+		}
+		return nil, err // Сущность не найдена или другая ошибка запроса
 	}
 
 	// Проверка пароля
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return models.User{}, errors.New("invalid password") // Неверный пароль
+	if err := bcrypt.CompareHashAndPassword([]byte(entity.GetPassword()), []byte(password)); err != nil {
+		return nil, errors.New("invalid password") // Неверный пароль
 	}
-	return user, nil
+	return entity, nil
 }
 
 // SaveRefreshToken сохраняет рефреш токен в документе пользователя
@@ -121,14 +140,15 @@ func (s *EntityService) GetSecretKeys() ([]byte, []byte) {
 }
 
 func (s *EntityService) AuthenticateAndGenerateTokens(ctx context.Context, entity auth.Authenticatable, secretKey []byte, refreshTokenSecret []byte) (string, string, error) {
-	// Directly authenticate using the provided entity and not converting it to a user model
-	user, err := s.Authenticate(ctx, entity.GetEmail(), entity.GetPassword(), entity)
+	authenticatedEntity, err := s.Authenticate(ctx, entity.GetEmail(), entity.GetPassword(), entity)
+	if err != nil {
+		return "", "", err
+	}
 	if err != nil {
 		return "", "", err
 	}
 
-	// Since the entity is authenticated, proceed to generate and store tokens
-	accessToken, refreshToken, err := s.GenerateAndStoreToken(ctx, &user, secretKey, refreshTokenSecret)
+	accessToken, refreshToken, err := s.GenerateAndStoreToken(ctx, authenticatedEntity, secretKey, refreshTokenSecret)
 	if err != nil {
 		return "", "", err
 	}

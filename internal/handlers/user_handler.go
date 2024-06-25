@@ -61,7 +61,10 @@ func (h *EntityHandler) LoginEntityHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(token)
+	err = json.NewEncoder(w).Encode(token)
+	if err != nil {
+		return
+	}
 
 }
 
@@ -90,7 +93,10 @@ func (h *EntityHandler) GetEntityById(w http.ResponseWriter, r *http.Request, en
 	err = h.redisService.GetCachedEntity(entityID.Hex(), &entity)
 	if err == nil {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(entity)
+		err = json.NewEncoder(w).Encode(entity)
+		if err != nil {
+			return
+		}
 		return
 	}
 
@@ -112,7 +118,10 @@ func (h *EntityHandler) GetEntityById(w http.ResponseWriter, r *http.Request, en
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(entity)
+	err = json.NewEncoder(w).Encode(entity)
+	if err != nil {
+		return
+	}
 }
 
 // UpdateEntity обрабатывает обновление данных сущности
@@ -143,7 +152,10 @@ func (h *EntityHandler) UpdateEntity(w http.ResponseWriter, r *http.Request, ent
 
 	response := map[string]string{"message": entityType + " updated successfully"}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return
+	}
 }
 
 // ChangePasswordHandler обрабатывает изменение пароля сущности
@@ -183,7 +195,10 @@ func (h *EntityHandler) ChangePasswordHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "password changed successfully"})
+	err = json.NewEncoder(w).Encode(map[string]string{"status": "password changed successfully"})
+	if err != nil {
+		return
+	}
 }
 
 // DeleteEntity обрабатывает удаление сущности
@@ -198,7 +213,10 @@ func (h *EntityHandler) DeleteEntity(w http.ResponseWriter, r *http.Request, ent
 
 	response := map[string]string{"message": entityType + " deleted successfully"}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return
+	}
 }
 
 // GetAllUsers обрабатывает получение всех пользователей
@@ -210,7 +228,10 @@ func (h *EntityHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(users)
+	err = json.NewEncoder(w).Encode(users)
+	if err != nil {
+		return
+	}
 }
 
 // GetAllRestaurants обрабатывает получение всех ресторанов
@@ -222,7 +243,10 @@ func (h *EntityHandler) GetAllRestaurants(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(restaurants)
+	err = json.NewEncoder(w).Encode(restaurants)
+	if err != nil {
+		return
+	}
 
 }
 
@@ -248,7 +272,10 @@ func (h *EntityHandler) GetEntity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(entity)
+	err = json.NewEncoder(w).Encode(entity)
+	if err != nil {
+		return
+	}
 }
 
 // AddFavoriteRestaurantHandler обрабатывает добавление ресторана в список избранных
@@ -297,7 +324,10 @@ func (h *EntityHandler) GetFavoriteRestaurantsHandler(w http.ResponseWriter, r *
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(favoriteRestaurants)
+	err = json.NewEncoder(w).Encode(favoriteRestaurants)
+	if err != nil {
+		return
+	}
 }
 
 // getUserIDFromContext извлекает ID пользователя из контекста

@@ -31,7 +31,6 @@ func (r *RedisService) CacheEntity(entityID string, entity interface{}) error {
 	if err != nil {
 		return err
 	}
-
 	err = r.Client.Set(ctx, entityID, entityJSON, 1*time.Hour).Err()
 	if err != nil {
 		return err

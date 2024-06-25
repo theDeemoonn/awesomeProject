@@ -25,6 +25,11 @@ type EntityService struct {
 	entityCollName string
 }
 
+const (
+	EntityTypeUser       = "users"
+	EntityTypeRestaurant = "restaurants"
+)
+
 // SecretKey - ключ для подписи JWT токена
 var SecretKey []byte
 
@@ -54,19 +59,7 @@ func NewEntityService(client *mongo.Client, dbName, entityCollName string) *Enti
 
 // GetEntity возвращает сущность по ее ID и типу
 func (s *EntityService) GetEntity(ctx context.Context, entityID string, entityType string) (interface{}, error) {
-	var collectionName string
 	var result interface{}
-
-	switch entityType {
-	case "users":
-		collectionName = s.entityCollName
-		result = &models.User{}
-	case "restaurants":
-		collectionName = s.entityCollName // Предполагаем, что имя коллекции ресторанов такое
-		result = &models.Restaurant{}
-	default:
-		return nil, fmt.Errorf("unknown entity type: %s", entityType)
-	}
 
 	id, err := primitive.ObjectIDFromHex(entityID)
 	if err != nil {
@@ -74,9 +67,19 @@ func (s *EntityService) GetEntity(ctx context.Context, entityID string, entityTy
 	}
 
 	filter := bson.M{"_id": id}
-	collection := s.db.Collection(collectionName)
-	if err := collection.FindOne(ctx, filter).Decode(result); err != nil {
-		return nil, err // сущность не найдена или другая ошибка запроса
+	switch entityType {
+	case EntityTypeUser:
+		result = &models.User{}
+		if err := s.db.Collection(s.entityCollName).FindOne(ctx, filter).Decode(result); err != nil {
+			return nil, err // сущность не найдена или другая ошибка запроса
+		}
+	case EntityTypeRestaurant:
+		result = &models.Restaurant{}
+		if err := s.db.Collection(s.entityCollName).FindOne(ctx, filter).Decode(result); err != nil {
+			return nil, err // сущность не найдена или другая ошибка запроса
+		}
+	default:
+		return nil, fmt.Errorf("unknown entity type: %s", entityType)
 	}
 
 	return result, nil

@@ -5,6 +5,7 @@ import (
 	"awesomeProject/internal/models"
 	"awesomeProject/internal/services"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 )
@@ -39,6 +40,8 @@ func (h *EntityHandler) RegisterHandler(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
+	log.Printf("Generating tokens for EntityTypeРег: %s", entityType)
+
 	if err := json.NewDecoder(r.Body).Decode(authEntity); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -52,12 +55,14 @@ func (h *EntityHandler) RegisterHandler(w http.ResponseWriter, r *http.Request, 
 
 	response := map[string]string{"entityID": entityID}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return
+	}
 }
 
 func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request, entityType string) {
 	var authEntity auth.Authenticatable
-
 	switch entityType {
 	case "users":
 		authEntity = new(models.User)
@@ -82,7 +87,10 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request, entit
 	}
 
 	setTokenCookies(w, accessToken, refreshToken)
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "accessToken": accessToken, "refreshToken": refreshToken})
+	err = json.NewEncoder(w).Encode(map[string]string{"status": "success", "accessToken": accessToken, "refreshToken": refreshToken})
+	if err != nil {
+		return
+	}
 }
 
 func setTokenCookies(w http.ResponseWriter, accessToken, refreshToken string) {
